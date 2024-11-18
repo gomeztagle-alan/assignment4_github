@@ -476,7 +476,52 @@ int mm_check() {
 }
 
 // Extra credit.
+/*  The realloc() function changes the size of the memory block pointed to by
+	ptr to size bytes.  The contents will be unchanged in the range from the
+	start of the region up to the minimum of the old and new sizes.  If the
+	new size is larger than the old size, the added memory will not be
+	initialized.  If ptr is NULL, then the call is equivalent to
+	malloc(size), for all values of size; if size is equal to zero, and ptr
+	is not NULL, then the call is equivalent to free(ptr).  Unless ptr is
+	NULL, it must have been returned by an earlier call to malloc(), calloc()
+	or realloc().  If the area pointed to was moved, a free(ptr) is done. */
 void* mm_realloc(void* ptr, size_t size) {
-  // ... implementation here ...
-  return NULL;
+	BlockInfo* blockInfo = (BlockInfo*)UNSCALED_POINTER_SUB(ptr, WORD_SIZE);
+	size_t oldSize = SIZE(blockInfo);
+	void* newPtr;
+	if(ptr == NULL) { return malloc(size); }
+	// if ptr != NULL && size == 0
+	if(ptr != NULL && size == 0) { free(size); return NULL}
+		// free(ptr)
+	// if area pointed to moved
+	// if newsize larger than old size
+	if(size > oldSize) {
+		// Do not initialize added memory
+		newPtr = malloc(size);
+		// iterate & copy WORD_SIZE bytes into new region
+		size_t wordsCopied = 0;
+		for (void* i = ptr; i < (void*)UNSCALED_POINTER_ADD(blockInfo, size - WORD_SIZE); i=(void*)UNSCALED_POINTER_ADD(i,WORD_SIZE)) {
+			(void*)UNSCALED_POINTER_ADD(newPtr, wordsCopied*WORD_SIZE) = ptr;
+			wordsCopied++
+		}
+		// free ptr
+		free(ptr);
+		return newPtr;
+	}
+	
+  return ptr;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
