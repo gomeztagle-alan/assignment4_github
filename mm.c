@@ -456,12 +456,15 @@ void mm_free (void *ptr) {
 	nextBlock = (BlockInfo *)UNSCALED_POINTER_ADD(blockInfo, blockSize);
 
     blockInfo->sizeAndTags &= ~TAG_USED;
-    *((size_t *)((char *)blockInfo + blockSize - WORD_SIZE)) = blockInfo->sizeAndTags;
+
+    //*((size_t *)((char *)blockInfo + blockSize - WORD_SIZE)) = blockInfo->sizeAndTags;
+	*(size_t *)UNSCALED_POINTER_ADD(blockInfo, blockSize - WORD_SIZE) = blockInfo->sizeAndTags;
 
     nextBlock->sizeAndTags &= ~TAG_PRECEDING_USED;
     if (!(nextBlock->sizeAndTags & TAG_USED)) {
             size_t nextBlockSize = SIZE(nextBlock->sizeAndTags);
-            *((size_t *)((char *)nextBlock + nextBlockSize - WORD_SIZE)) = nextBlock->sizeAndTags;
+            //*((size_t *)((char *)nextBlock + nextBlockSize - WORD_SIZE)) = nextBlock->sizeAndTags;
+			*(size_t *)UNSCALED_POINTER_ADD(nextBlock, nextBlockSize - WORD_SIZE) = nextBlock->sizeAndTags;
     }
 
     insertFreeBlock(blockInfo);
@@ -487,25 +490,47 @@ int mm_check() {
 	or realloc().  If the area pointed to was moved, a free(ptr) is done. */
 void* mm_realloc(void* ptr, size_t size) {
 	BlockInfo* blockInfo = (BlockInfo*)UNSCALED_POINTER_SUB(ptr, WORD_SIZE);
-	size_t oldSize = SIZE(blockInfo);
+	size_t oldSize = SIZE(blockInfo->sizeAndTags);
 	void* newPtr;
-	if(ptr == NULL) { return malloc(size); }
+	void* oldPtr = ptr;
+	if(ptr == NULL) { return mm_malloc(size); }
 	// if ptr != NULL && size == 0
-	if(ptr != NULL && size == 0) { free(size); return NULL}
+	if(ptr != NULL && size == 0) { mm_free(ptr); return NULL;}
 		// free(ptr)
 	// if area pointed to moved
 	// if newsize larger than old size
+	if (size < oldSize) {
+		size_t remSize = oldSize - size;
+		if (remSize <= MIN_BLOCK_SIZE) {
+			return ptr;
+		}
+		else {
+			place(blockInfo, remSize);
+			return (void*)UNSCALED_POINTER_ADD(blockInfo, WORD_SIZE);
+		}
+
+	}
 	if(size > oldSize) {
 		// Do not initialize added memory
-		newPtr = malloc(size);
+		newPtr = mm_malloc(size);
 		// iterate & copy WORD_SIZE bytes into new region
-		size_t wordsCopied = 0;
-		for (void* i = ptr; i < (void*)UNSCALED_POINTER_ADD(blockInfo, size - WORD_SIZE); i=(void*)UNSCALED_POINTER_ADD(i,WORD_SIZE)) {
-			(void*)UNSCALED_POINTER_ADD(newPtr, wordsCopied*WORD_SIZE) = ptr;
-			wordsCopied++
+		//for (void* i = ptr; i < (void*)UNSCALED_POINTER_ADD(blockInfo, size - WORD_SIZE); i=(void*)UNSCALED_POINTER_ADD(i,WORD_SIZE)) {
+		//	*(void*)UNSCALED_POINTER_ADD(newPtr, wordsCopied*WORD_SIZE) = i;
+		//	wordsCopied++;
+		//}
+		void* dest = newPtr;
+		void* src = ptr;
+		size_t bytes = oldSize/WORD_SIZE;
+		for(size_t i = 0; i < bytes; i++) {
+			*((size_t*) dest) = *((size_t*) src);
+			src = (void*)UNSCALED_POINTER_ADD(src, WORD_SIZE);
+			dest = (void*)UNSCALED_POINTER_ADD(dest, WORD_SIZE);
 		}
+
 		// free ptr
-		free(ptr);
+		//blockInfo = (BlockInfo*)UNSCALED_POINTER_SUB(ptr, WORD_SIZE);
+		//mm_free(blockInfo);
+		mm_free(ptr);
 		return newPtr;
 	}
 	
