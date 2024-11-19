@@ -360,6 +360,11 @@ int mm_init () {
 /*  Place the requested block at the beginning of the free block
 	splitting only if the size of the remainder would equal
 	or exceed the minimum block size */
+
+static int validPtr(void* ptr) {
+	if(ptr < mem_heap_lo() || ptr > mem_heap_hi() - MIN_BLOCK_SIZE) { return 0;}
+	return 1;
+}
 static size_t alignSize(size_t asize) {
   if (asize <= MIN_BLOCK_SIZE) {
     // Make sure we allocate enough space for a blockInfo in case we
@@ -462,7 +467,7 @@ void mm_free (void *ptr) {
     if (!ptr) { return; }
 
 	// Case P: Pointer not valid address
-	if(ptr < mem_heap_lo() || ptr > mem_heap_hi() - MIN_BLOCK_SIZE) { return;}
+	if (!validPtr(ptr)) {return; }
 
     size_t blockSize;
     BlockInfo * blockInfo;
@@ -519,7 +524,7 @@ void* mm_realloc(void* ptr, size_t size) {
 	// Case 3: Nothing changes
 	if(size == oldSize) { return ptr; }
 	// Case P: Pointer not valid address
-	if(ptr < mem_heap_lo() || ptr > mem_heap_hi() - MIN_BLOCK_SIZE) { return NULL;}
+	if (!validPtr(ptr)) {return; }
 
 
 	// If newsize is larger than the old size, add memory
