@@ -148,7 +148,7 @@ static void insertFreeBlock(BlockInfo* freeBlock) {
   if (oldHead != NULL) {
     oldHead->prev = freeBlock;
   }
-  //  freeBlock->prev = NULL;
+  freeBlock->prev = NULL;
   FREE_LIST_HEAD = freeBlock;
 }      
 
@@ -163,6 +163,7 @@ static void removeFreeBlock(BlockInfo* freeBlock) {
   
   nextFree = freeBlock->next;
   prevFree = freeBlock->prev;
+  examine_heap();
 
   // If the next block is not null, patch its prev pointer.
   if (nextFree != NULL) {
@@ -174,7 +175,12 @@ static void removeFreeBlock(BlockInfo* freeBlock) {
   if (freeBlock == FREE_LIST_HEAD) {
     FREE_LIST_HEAD = nextFree;
   } else {
-    prevFree->next = nextFree;
+	//if(prevFree /*&& validPtr(prevFree)*/) {
+		prevFree->next = nextFree;
+	//}
+	/*else {
+		printf("I am not doing anything\n");
+	} */
   }
 }
 
@@ -281,7 +287,7 @@ static void requestMoreSpace(size_t reqSize) {
 
 
 /* Print the heap by iterating through it as an implicit free list. */
-static void examine_heap() {
+void examine_heap() {
   BlockInfo *block;
 
   /* print to stderr so output isn't buffered and not output if we crash */
@@ -361,7 +367,7 @@ int mm_init () {
 	splitting only if the size of the remainder would equal
 	or exceed the minimum block size */
 
-static int validPtr(void* ptr) {
+int validPtr(void* ptr) {
 	if(ptr < mem_heap_lo() || ptr > mem_heap_hi() - MIN_BLOCK_SIZE) { return 0;}
 	return 1;
 }
@@ -393,7 +399,7 @@ static void place(BlockInfo* oldBlock, size_t asize) {
 		return;
 	}
 	if (remSize >= (MIN_BLOCK_SIZE)) {
-		examine_heap();
+		//examine_heap();
 		// Split the free block, remove the allocated block from list– Use removeFreeBlock()
 		removeFreeBlock(oldBlock);
 		// Update headers/footers of both new blocks 
@@ -524,7 +530,7 @@ void* mm_realloc(void* ptr, size_t size) {
 	// Case 3: Nothing changes
 	if(size == oldSize) { return ptr; }
 	// Case P: Pointer not valid address
-	if (!validPtr(ptr)) {return; }
+	if (!validPtr(ptr)) {return NULL; }
 
 
 	// If newsize is larger than the old size, add memory
