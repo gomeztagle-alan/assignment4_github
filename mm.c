@@ -11,6 +11,11 @@
  *   in memory.
  *-------------------------------------------------------------------- */
 
+/* Kelsey Erb
+   kerb@umass.edu
+   Alan Gomez-Tagle
+   alangomeztag@umass.edu */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -439,36 +444,49 @@ void* mm_malloc (size_t size) {
 
 /* Free the block referenced by ptr. */
 // Written by Kelsey Erb
-/* Free te block referenced by ptr. */
+/*This function marks the memory block pointed to by ptr as free, updates the metadata 
+for the block and its neighboring blocks, and adds the block to the free list. It also 
+attempts to coalesce the freed block with adjacent free blocks.*/
 void mm_free (void *ptr) {
 
+    //if the pointer is NULL there is nothing to free so return immediately
     if (!ptr)
         return;
+    
+    size_t blockSize; //size of current block
+    BlockInfo * blockInfo; //pointer to block metadata
+    BlockInfo * nextBlock; //pointer to next block in memory
 
-    size_t blockSize;
-    BlockInfo * blockInfo;
-    BlockInfo * nextBlock;
+    //calculate the starting address of block metadata 
+    //subtract WORD_SIZE from passed in ptr
+blockInfo = (BlockInfo *)UNSCALED_POINTER_SUB(ptr, WORD_SIZE);
 
-    //blockInfo = (BlockInfo *)((char *)ptr - WORD_SIZE);
-	blockInfo = (BlockInfo *)UNSCALED_POINTER_SUB(ptr, WORD_SIZE);
+    //retrieve size of current block with header and footer from its metadata
     blockSize = SIZE(blockInfo->sizeAndTags);
-    //nextBlock = (BlockInfo *)((char *)blockInfo + blockSize);
-	nextBlock = (BlockInfo *)UNSCALED_POINTER_ADD(blockInfo, blockSize);
 
+    //calculate start address of next block using current block size
+nextBlock = (BlockInfo *)UNSCALED_POINTER_ADD(blockInfo, blockSize);
+
+    //mark current block as free by clearing tag bit in metadata
     blockInfo->sizeAndTags &= ~TAG_USED;
 
-    //*((size_t *)((char *)blockInfo + blockSize - WORD_SIZE)) = blockInfo->sizeAndTags;
-	*(size_t *)UNSCALED_POINTER_ADD(blockInfo, blockSize - WORD_SIZE) = blockInfo->sizeAndTags;
+    //update footer of current block to indicate it is free
+*(size_t *)UNSCALED_POINTER_ADD(blockInfo, blockSize - WORD_SIZE) = blockInfo->sizeAndTags;
 
+    //indicate preceding block is free
     nextBlock->sizeAndTags &= ~TAG_PRECEDING_USED;
+
+    //check if next block is free by verifying tag used bit in metaadata is unset
     if (!(nextBlock->sizeAndTags & TAG_USED)) {
-            size_t nextBlockSize = SIZE(nextBlock->sizeAndTags);
-            //*((size_t *)((char *)nextBlock + nextBlockSize - WORD_SIZE)) = nextBlock->sizeAndTags;
-			*(size_t *)UNSCALED_POINTER_ADD(nextBlock, nextBlockSize - WORD_SIZE) = nextBlock->sizeAndTags;
+            //if next block is free, retrieve size from metadata
+            size_t nextBlockSize = SIZE(nextBlock->sizeAndTags); 
+            //update footer of next block
+*(size_t *)UNSCALED_POINTER_ADD(nextBlock, nextBlockSize - WORD_SIZE) = nextBlock->sizeAndTags;
     }
 
+    //add freed block to list
     insertFreeBlock(blockInfo);
-
+    //attempt to coalesce freed block with adjacent free blocks
     coalesceFreeBlock(blockInfo);
 
     return;
@@ -499,42 +517,42 @@ void* mm_realloc(void* ptr, size_t size) {
 		// free(ptr)
 	// if area pointed to moved
 	// if newsize larger than old size
-	if (size < oldSize) {
+	if (size < oldSize) {	// Allocate in place
 		size_t remSize = oldSize - size;
 		if (remSize <= MIN_BLOCK_SIZE) {
-			return ptr;
+			return ptr; // Too small to split
 		}
 		else {
-			place(blockInfo, remSize);
+			place(blockInfo, remSize); // Split if possible
 			return (void*)UNSCALED_POINTER_ADD(blockInfo, WORD_SIZE);
 		}
 
 	}
 	if(size > oldSize) {
 		// Do not initialize added memory
-		newPtr = mm_malloc(size);
+		newPtr = mm_malloc(size); // Move region
 		// iterate & copy WORD_SIZE bytes into new region
 		//for (void* i = ptr; i < (void*)UNSCALED_POINTER_ADD(blockInfo, size - WORD_SIZE); i=(void*)UNSCALED_POINTER_ADD(i,WORD_SIZE)) {
 		//	*(void*)UNSCALED_POINTER_ADD(newPtr, wordsCopied*WORD_SIZE) = i;
 		//	wordsCopied++;
 		//}
-		void* dest = newPtr;
-		void* src = ptr;
-		size_t bytes = oldSize/WORD_SIZE;
+		void* dest = newPtr; // New region
+		void* src = ptr; // Original region
+		size_t bytes = oldSize/WORD_SIZE; // Calc # of bytes
 		for(size_t i = 0; i < bytes; i++) {
-			*((size_t*) dest) = *((size_t*) src);
-			src = (void*)UNSCALED_POINTER_ADD(src, WORD_SIZE);
-			dest = (void*)UNSCALED_POINTER_ADD(dest, WORD_SIZE);
+			*((size_t*) dest) = *((size_t*) src); // Copy words
+			src = (void*)UNSCALED_POINTER_ADD(src, WORD_SIZE); // Inc. Cursor
+			dest = (void*)UNSCALED_POINTER_ADD(dest, WORD_SIZE); // Inc. Cursor
 		}
 
 		// free ptr
 		//blockInfo = (BlockInfo*)UNSCALED_POINTER_SUB(ptr, WORD_SIZE);
 		//mm_free(blockInfo);
-		mm_free(ptr);
-		return newPtr;
+		mm_free(ptr); // Free ptr
+		return newPtr; // Return new region
 	}
 	
-  return ptr;
+  return ptr; // If oldSize == size then return OG ptr
 }
 
 
