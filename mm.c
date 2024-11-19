@@ -144,12 +144,16 @@ static void * searchFreeList(size_t reqSize) {
 /* Insert freeBlock at the head of the list.  (LIFO) */
 static void insertFreeBlock(BlockInfo* freeBlock) {
   BlockInfo* oldHead = FREE_LIST_HEAD;
+  printf("Inserting %p.....\n", freeBlock);
+  examine_heap();
   freeBlock->next = oldHead;
   if (oldHead != NULL) {
     oldHead->prev = freeBlock;
   }
   freeBlock->prev = NULL;
   FREE_LIST_HEAD = freeBlock;
+  examine_heap();
+  printf(".....Done\n");
 }      
 
 /* Remove a free block from the free list. */
@@ -160,10 +164,10 @@ static void removeFreeBlock(BlockInfo* freeBlock) {
 		return;
 	}
   BlockInfo *nextFree, *prevFree;
-  
+  printf("Exirting %p.....\n", freeBlock);
+  examine_heap();
   nextFree = freeBlock->next;
   prevFree = freeBlock->prev;
-  examine_heap();
 
   // If the next block is not null, patch its prev pointer.
   if (nextFree != NULL) {
@@ -182,6 +186,8 @@ static void removeFreeBlock(BlockInfo* freeBlock) {
 		printf("I am not doing anything\n");
 	} */
   }
+  examine_heap();
+  printf(".....Done\n");
 }
 
 /* Coalesce 'oldBlock' with any preceeding or following free blocks. */
@@ -540,6 +546,7 @@ void* mm_realloc(void* ptr, size_t size) {
 
 		// Split free block if possible
 		// Else, return orig ptr
+		mm_free(blockInfo);
 		place(blockInfo, reqSize);
 		return (void*)UNSCALED_POINTER_ADD(blockInfo, WORD_SIZE);
 	}
