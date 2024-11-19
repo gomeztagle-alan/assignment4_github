@@ -154,6 +154,11 @@ static void insertFreeBlock(BlockInfo* freeBlock) {
 
 /* Remove a free block from the free list. */
 static void removeFreeBlock(BlockInfo* freeBlock) {
+
+	// Protects removeFree from allocated blocks
+	if ((freeBlock->sizeAndTags & TAG_USED) == 1) {
+		return;
+	}
   BlockInfo *nextFree, *prevFree;
   
   nextFree = freeBlock->next;
@@ -371,7 +376,8 @@ static void place(BlockInfo* oldBlock, size_t asize) {
 	BlockInfo* blockCursor;
 	// Check the size of the block – use SIZE() maco
 	size_t oldSize = SIZE(oldBlock->sizeAndTags);
-	size_t remSize = oldSize - asize;
+	long long signed int sremSize = oldSize - asize;
+	size_t remSize = abs(sremSize);
 	// Was the preceding block used?  Need to know for below
 	size_t precedingBlockUseTag = oldBlock->sizeAndTags & TAG_PRECEDING_USED;
 	// Check to see if block has extra space, if so we need to split
@@ -382,6 +388,7 @@ static void place(BlockInfo* oldBlock, size_t asize) {
 		return;
 	}
 	if (remSize >= (MIN_BLOCK_SIZE)) {
+		examine_heap();
 		// Split the free block, remove the allocated block from list– Use removeFreeBlock()
 		removeFreeBlock(oldBlock);
 		// Update headers/footers of both new blocks 
