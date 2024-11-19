@@ -10,11 +10,13 @@
  * o We use "following" and "preceding" to refer to adjacent blocks
  *   in memory.
  *-------------------------------------------------------------------- */
-
-/* Kelsey Erb
-   kerb@umass.edu
-   Alan Gomez-Tagle
-   alangomeztag@umass.edu */
+// [X] EXTRA CREDIT ATTEMPTED
+/* ======================================================================
+Kelsey Erb
+	kerb@umass.edu
+ Alan Gomez-Tagle
+	alangomeztag@umass.edu 
+ ========================================================================*/
 
 #include <stdio.h>
 #include <stdlib.h>
