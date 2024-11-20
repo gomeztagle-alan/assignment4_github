@@ -16,6 +16,8 @@
 #include <assert.h>
 #include <unistd.h>
 
+#include <string.h>
+
 #include "memlib.h"
 #include "mm.h"
 
@@ -144,16 +146,16 @@ static void * searchFreeList(size_t reqSize) {
 /* Insert freeBlock at the head of the list.  (LIFO) */
 static void insertFreeBlock(BlockInfo* freeBlock) {
   BlockInfo* oldHead = FREE_LIST_HEAD;
-  printf("Inserting %p.....\n", freeBlock);
-  examine_heap();
+  //printf("Inserting %p.....\n", freeBlock);
+  //examine_heap();
   freeBlock->next = oldHead;
   if (oldHead != NULL) {
     oldHead->prev = freeBlock;
   }
   freeBlock->prev = NULL;
   FREE_LIST_HEAD = freeBlock;
-  examine_heap();
-  printf(".....Done\n");
+  //examine_heap();
+  //printf(".....Done\n");
 }      
 
 /* Remove a free block from the free list. */
@@ -164,8 +166,8 @@ static void removeFreeBlock(BlockInfo* freeBlock) {
 		return;
 	}
   BlockInfo *nextFree, *prevFree;
-  printf("Exirting %p.....\n", freeBlock);
-  examine_heap();
+  //printf("Exirting %p.....\n", freeBlock);
+  //examine_heap();
   nextFree = freeBlock->next;
   prevFree = freeBlock->prev;
 
@@ -183,11 +185,11 @@ static void removeFreeBlock(BlockInfo* freeBlock) {
 		prevFree->next = nextFree;
 	//}
 	/*else {
-		printf("I am not doing anything\n");
+		//printf("I am not doing anything\n");
 	} */
   }
-  examine_heap();
-  printf(".....Done\n");
+  //examine_heap();
+  //printf(".....Done\n");
 }
 
 /* Coalesce 'oldBlock' with any preceeding or following free blocks. */
@@ -245,7 +247,7 @@ static void coalesceFreeBlock(BlockInfo* oldBlock) {
     newBlock->sizeAndTags = newSize | TAG_PRECEDING_USED;
     // The boundary tag of the preceding block is the word immediately
     // preceding block in memory where we left off advancing blockCursor.
-    *(size_t*)UNSCALED_POINTER_SUB(blockCursor, WORD_SIZE) = newSize | TAG_PRECEDING_USED;  
+    *((size_t*)UNSCALED_POINTER_SUB(blockCursor, WORD_SIZE)) = newSize | TAG_PRECEDING_USED;  
 
     // Put the new block in the free list.
     insertFreeBlock(newBlock);
@@ -487,6 +489,8 @@ void mm_free (void *ptr) {
 
     //blockInfo = (BlockInfo *)((char *)ptr - WORD_SIZE);
 	blockInfo = (BlockInfo *)UNSCALED_POINTER_SUB(ptr, WORD_SIZE);
+	//blockInfo = (BlockInfo *)ptr;
+	
     blockSize = SIZE(blockInfo->sizeAndTags);
     //nextBlock = (BlockInfo *)((char *)blockInfo + blockSize);
 	nextBlock = (BlockInfo *)UNSCALED_POINTER_ADD(blockInfo, blockSize);
@@ -494,13 +498,13 @@ void mm_free (void *ptr) {
     blockInfo->sizeAndTags &= ~TAG_USED;
 
     //*((size_t *)((char *)blockInfo + blockSize - WORD_SIZE)) = blockInfo->sizeAndTags;
-	*(size_t *)UNSCALED_POINTER_ADD(blockInfo, blockSize - WORD_SIZE) = blockInfo->sizeAndTags;
+	*((size_t *)UNSCALED_POINTER_ADD(blockInfo, blockSize - WORD_SIZE)) = blockInfo->sizeAndTags;
 
     nextBlock->sizeAndTags &= ~TAG_PRECEDING_USED;
     if (!(nextBlock->sizeAndTags & TAG_USED)) {
             size_t nextBlockSize = SIZE(nextBlock->sizeAndTags);
             //*((size_t *)((char *)nextBlock + nextBlockSize - WORD_SIZE)) = nextBlock->sizeAndTags;
-			*(size_t *)UNSCALED_POINTER_ADD(nextBlock, nextBlockSize - WORD_SIZE) = nextBlock->sizeAndTags;
+			*((size_t *)UNSCALED_POINTER_ADD(nextBlock, nextBlockSize - WORD_SIZE)) = nextBlock->sizeAndTags;
     }
 
     insertFreeBlock(blockInfo);
@@ -514,6 +518,19 @@ int mm_check() {
   return 0;
 }
 
+void *copy(void *dest, const void *src, size_t number_of_bytes) {
+    // Step 1: Cast the void pointers to char pointers (byte-by-byte access)
+    char *d = (char *)dest;
+    const char *s = (const char *)src;
+
+    // Step 2: Loop through each byte and copy from source to destination
+    for (size_t i = 0; i < number_of_bytes; i++) {
+        d[i] = s[i];  // Copy each byte from src to dest
+    }
+
+   // Step 3: Return the destination pointer
+    return dest;
+} 
 // Extra credit.
 /*  The realloc() function changes the size of the memory block pointed to by
 	ptr to size bytes.  The contents will be unchanged in the range from the
@@ -540,31 +557,42 @@ void* mm_realloc(void* ptr, size_t size) {
 
 
 	// If newsize is larger than the old size, add memory
-	if (oldSize > size) {
-		size_t reqSize;
-		reqSize = alignSize(size + WORD_SIZE);
+	if (oldSize < size) {
+		coalesceFreeBlock(blockInfo);
+		oldSize = SIZE(blockInfo->sizeAndTags);
+		if (oldSize > size) {
+			size_t reqSize;
+			reqSize = alignSize(size + WORD_SIZE);
 
-		// Split free block if possible
-		// Else, return orig ptr
-		mm_free(blockInfo);
-		place(blockInfo, reqSize);
-		return (void*)UNSCALED_POINTER_ADD(blockInfo, WORD_SIZE);
+			// Split free block if possible
+			// Else, return orig ptr
+			mm_free(ptr);
+			place(blockInfo, reqSize);
+			return (void*)UNSCALED_POINTER_ADD(blockInfo, WORD_SIZE);
+		}
+		if(size == oldSize) { return ptr; }
 	}
 
+
+
 	// Do not initialize added memory
-	newPtr = mm_malloc(size);
+	if ( (newPtr = mm_malloc(size)) == 0) {
+		return NULL;
+	}
 	// iterate & copy WORD_SIZE bytes into new region
 	//for (void* i = ptr; i < (void*)UNSCALED_POINTER_ADD(blockInfo, size - WORD_SIZE); i=(void*)UNSCALED_POINTER_ADD(i,WORD_SIZE)) {
 	//	*(void*)UNSCALED_POINTER_ADD(newPtr, wordsCopied*WORD_SIZE) = i;
 	//	wordsCopied++;
 	//}
-	void* dest = newPtr;
-	void* src = ptr;
 	size_t bytes = oldSize/WORD_SIZE;
-	for(size_t i = 0; i < bytes; i++) {
-		*((size_t*) dest) = *((size_t*) src);
-		src = (void*)UNSCALED_POINTER_ADD(src, WORD_SIZE);
-		dest = (void*)UNSCALED_POINTER_ADD(dest, WORD_SIZE);
+	printf("I MADE IT HERE PLEASE LOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOk\n");
+	//newPtr = copy(newPtr, ptr, bytes);
+	size_t* dest = (size_t*)newPtr;
+	size_t* src = (size_t*)ptr;
+	size_t numWords = oldSize / WORD_SIZE;
+
+	for (size_t i = 0; i < numWords; i++) {
+		dest[i] = src[i];
 	}
 
 	// free ptr
