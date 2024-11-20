@@ -558,19 +558,16 @@ void* mm_realloc(void* ptr, size_t size) {
 
 	// If newsize is larger than the old size, add memory
 	if (oldSize < size) {
-		coalesceFreeBlock(blockInfo);
-		oldSize = SIZE(blockInfo->sizeAndTags);
-		if (oldSize > size) {
-			size_t reqSize;
-			reqSize = alignSize(size + WORD_SIZE);
+		//coalesceFreeBlock(blockInfo);
+		//oldSize = SIZE(blockInfo->sizeAndTags);
+		size_t reqSize;
+		reqSize = alignSize(size + WORD_SIZE);
 
-			// Split free block if possible
-			// Else, return orig ptr
-			mm_free(ptr);
-			place(blockInfo, reqSize);
-			return (void*)UNSCALED_POINTER_ADD(blockInfo, WORD_SIZE);
-		}
-		if(size == oldSize) { return ptr; }
+		// Split free block if possible
+		// Else, return orig ptr
+		mm_free(ptr);
+		place(blockInfo, reqSize);
+		return (void*)UNSCALED_POINTER_ADD(blockInfo, WORD_SIZE);
 	}
 
 
